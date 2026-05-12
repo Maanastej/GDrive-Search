@@ -62,6 +62,10 @@ class DriveSearchInput(BaseModel):
         default=None,
         description="Number of results to return (default 20, max 50).",
     )
+    folder_id: Optional[str] = Field(
+        default=None,
+        description="Optional ID of a specific folder to search within (non-recursive top-level search).",
+    )
 
 
 # ── Tool Implementation ─────────────────────────────────────────────────
@@ -98,6 +102,7 @@ class DriveSearchTool(BaseTool):
         modified_before: Optional[str] = None,
         full_text: Optional[str] = None,
         page_size: Optional[int] = None,
+        folder_id: Optional[str] = None,
     ) -> str:
         """Execute the Drive search synchronously and return formatted results."""
         try:
@@ -110,6 +115,7 @@ class DriveSearchTool(BaseTool):
                 modified_after=modified_after,
                 modified_before=modified_before,
                 full_text=full_text,
+                folder_id=folder_id,
             )
 
             logger.info(

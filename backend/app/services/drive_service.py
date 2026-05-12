@@ -95,12 +95,9 @@ class GoogleDriveService:
         """
         page_size = page_size or self._settings.DRIVE_PAGE_SIZE
 
-        # Scope to a specific folder if configured
-        folder_id = self._settings.GOOGLE_DRIVE_FOLDER_ID
-        if folder_id and f"in parents" not in query:
-            folder_clause = f"'{folder_id}' in parents"
-            query = f"{query} and {folder_clause}" if query else folder_clause
-
+        # Note: We rely on the service account's permissions to scope the search.
+        # Removing the 'in parents' restriction allows for recursive searching
+        # across all shared folders and subfolders.
         logger.info("Drive query: %s", query)
 
         try:
