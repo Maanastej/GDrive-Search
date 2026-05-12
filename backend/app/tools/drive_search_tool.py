@@ -13,7 +13,7 @@ import json
 from typing import Optional, Type
 
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.services.drive_service import GoogleDriveService
 from app.utils.logger import get_logger
@@ -66,6 +66,14 @@ class DriveSearchInput(BaseModel):
         default=None,
         description="Optional ID of a specific folder to search within (non-recursive top-level search).",
     )
+
+    @field_validator("page_size", mode="before")
+    @classmethod
+    def coerce_int(cls, v):
+        """Coerce string numbers to integers if possible."""
+        if isinstance(v, str) and v.isdigit():
+            return int(v)
+        return v
 
 
 # ── Tool Implementation ─────────────────────────────────────────────────
