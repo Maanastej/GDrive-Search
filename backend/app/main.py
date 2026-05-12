@@ -67,9 +67,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
 
     # Health check
-    @app.get("/health", response_model=HealthResponse, tags=["System"])
-    async def health_check() -> HealthResponse:
-        return HealthResponse(version=settings.APP_VERSION)
+    @app.get("/health", tags=["System"])
+    async def health_check():
+        return {"status": "healthy", "version": settings.APP_VERSION}
 
     return app
 
