@@ -21,6 +21,14 @@ Built with **LangChain** · **FastAPI** · **Streamlit** · **Google Drive API**
 
 ---
 
+## 📺 Demo
+
+![Drive Search Demo](Working.mp4)
+
+*Note: If the video doesn't play, you can find the source file at `Working.mp4` in the root directory.*
+
+---
+
 ## 🏗️ Architecture
 
 ```
@@ -156,7 +164,21 @@ LLM_MODEL=gpt-4o
 ```env
 LLM_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
-LLM_MODEL=claude-sonnet-4-20250514
+LLM_MODEL=claude-3-5-sonnet-20240620
+```
+
+**Google Gemini:**
+```env
+LLM_PROVIDER=gemini
+GOOGLE_API_KEY=...
+LLM_MODEL=gemini-1.5-flash
+```
+
+**Groq:**
+```env
+LLM_PROVIDER=groq
+GROQ_API_KEY=gsk-...
+LLM_MODEL=llama-3.3-70b-versatile
 ```
 
 ### Google Drive Auth
@@ -299,6 +321,27 @@ Health check endpoint.
 > **Bot:** Found 2 PDF reports modified in May 2026:  
 > 📕 Monthly Sales Report.pdf — May 10  
 > 📕 Expense Report May.pdf — May 7
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+1. **"File not found" or empty results:**
+   - Ensure you've shared the specific folder/files with the service account email found in your `service_account.json`.
+   - Check if `GOOGLE_DRIVE_FOLDER_ID` in `.env` is correct. If left empty, it searches the entire Drive accessible to the service account.
+
+2. **LLM Connection Errors:**
+   - Verify your `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is valid and has enough credits.
+   - Check your internet connection.
+
+3. **Streamlit cannot connect to Backend:**
+   - Ensure the backend is running on `http://localhost:8000` (or the URL set in `BACKEND_URL`).
+   - Check for CORS issues if running on different domains.
+
+4. **Service Account Authentication Failed:**
+   - Make sure `service_account.json` is in the `backend/` directory and is a valid Google Cloud key.
 
 ---
 
