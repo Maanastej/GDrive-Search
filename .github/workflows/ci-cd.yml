@@ -45,3 +45,7 @@ jobs:
           push: true    
           tags: ${{ secrets.DOCKER_USERNAME}}/gdrive-search:latest
 
+      - name: learning secrect keys
+        env:
+          SECRET_KEY: ${{secrets.APP_SECRET_KEY}}
+        run: echo "secret key is set $SECRET_KEY"
