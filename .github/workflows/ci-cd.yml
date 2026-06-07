@@ -53,4 +53,4 @@ jobs:
       - name: Run container with secret
         env:
           SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
-        run: docker run -e SECRET_KEY=$SECRET_KEY ${{ secrets.maanastej}}/gdrive-search:latest
+        run: docker run -e SECRET_KEY=$SECRET_KEY ${{ secrets.DOCKER_USERNAME }}/gdrive-search:latest
