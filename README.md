@@ -18,6 +18,7 @@ Built with **LangChain** · **FastAPI** · **Streamlit** · **Google Drive API**
 | 📊 **Rich File Cards** | File type icons, sizes, dates, and clickable Drive links |
 | 🌙 **Premium Dark UI** | Polished Streamlit interface with glassmorphism design |
 | 🚀 **Deployment Ready** | Configs for Railway, Render, and Docker included |
+| ⚙️ **CI/CD Pipeline** | Automated testing and Docker Hub deployment via GitHub Actions |
 
 ---
 
@@ -48,6 +49,9 @@ User
 
 ```
 Drive Search/
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml              # GitHub Actions CI/CD pipeline
 ├── backend/
 │   ├── app/
 │   │   ├── agents/
@@ -72,14 +76,104 @@ Drive Search/
 ├── frontend/
 │   ├── streamlit_app.py           # Chat UI
 │   └── requirements.txt
+├── tests/
+│   ├── __init__.py
+│   └── test_api.py                # pytest test suite for FastAPI endpoints
 ├── .env.example                   # Environment template
 ├── .gitignore
-├── Dockerfile
+├── Dockerfile                     # Container definition
+├── deploy.ps1                     # PowerShell deployment automation script
 ├── Procfile
 ├── railway.toml
 ├── render.yaml
 └── README.md
 ```
+
+---
+
+## ⚙️ CI/CD Pipeline
+
+This project includes a fully automated CI/CD pipeline using **GitHub Actions** and **Docker Hub**.
+
+### Pipeline Flow
+
+```
+git push to main
+  → GitHub Actions triggers
+  → Runs pytest on FastAPI endpoints
+  → Builds Docker image
+  → Pushes image to Docker Hub
+```
+
+### Pipeline Jobs
+
+**Job 1 — Test**
+- Sets up Python 3.11
+- Installs dependencies from `backend/requirements.txt`
+- Runs `pytest tests/ -v` against the live FastAPI app
+
+**Job 2 — Build & Push** *(only runs if tests pass)*
+- Logs into Docker Hub using GitHub Secrets
+- Builds Docker image from `Dockerfile`
+- Pushes image tagged as `latest` to Docker Hub
+
+### GitHub Secrets Required
+
+| Secret | Description |
+|--------|-------------|
+| `DOCKER_USERNAME` | Your Docker Hub username |
+| `DOCKER_TOKEN` | Docker Hub personal access token (Read/Write/Delete) |
+
+Credentials are **never hardcoded** — they are injected securely at runtime via GitHub Secrets.
+
+---
+
+## 🖥️ PowerShell Deployment Script
+
+For manual local deployments, use the included `deploy.ps1` script:
+
+```powershell
+# Set your Docker Hub username as an environment variable
+$env:DOCKER_USERNAME = "your-dockerhub-username"
+
+# Run the deployment script
+.\deploy.ps1
+```
+
+The script will:
+1. Build the Docker image locally
+2. Tag it with your Docker Hub username
+3. Push it to Docker Hub
+4. Exit with a clear error message if any step fails
+
+Optionally pass a custom image name or tag:
+
+```powershell
+.\deploy.ps1 -ImageName "gdrive-search" -Tag "v1.0"
+```
+
+---
+
+## 🧪 Testing
+
+Tests are located in the `tests/` directory and use **pytest** with FastAPI's `TestClient`.
+
+```bash
+# Install test dependencies
+pip install pytest httpx
+
+# Run tests
+pytest tests/ -v
+```
+
+### Test Coverage
+
+| Test | What it checks |
+|------|---------------|
+| `test_root` | App starts and root endpoint responds |
+| `test_app_starts` | FastAPI app object is correctly initialized |
+
+Tests run automatically on every `git push` via the CI/CD pipeline.
 
 ---
 
@@ -91,6 +185,7 @@ Drive Search/
 - Google Cloud project with Drive API enabled
 - Service account with Drive access
 - OpenAI or Anthropic API key
+- Docker Desktop (for containerized deployment)
 
 ### 1. Clone & Setup
 
@@ -231,6 +326,18 @@ GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 
 ## 🚢 Deployment
 
+### Docker Hub
+
+The latest image is automatically built and pushed to Docker Hub on every push to `main`.
+
+```bash
+# Pull the latest image
+docker pull your-dockerhub-username/gdrive-search:latest
+
+# Run the container
+docker run -p 8000:8000 --env-file .env your-dockerhub-username/gdrive-search:latest
+```
+
 ### Railway
 
 1. Push code to GitHub
@@ -247,7 +354,7 @@ GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 4. Render uses `render.yaml` for config
 5. Add secrets in the Render dashboard
 
-### Docker
+### Docker (Local)
 
 ```bash
 docker build -t drive-search .
@@ -342,6 +449,10 @@ Health check endpoint.
 
 4. **Service Account Authentication Failed:**
    - Make sure `service_account.json` is in the `backend/` directory and is a valid Google Cloud key.
+
+5. **CI/CD Pipeline Failing:**
+   - Check that `DOCKER_USERNAME` and `DOCKER_TOKEN` secrets are correctly set in GitHub repo Settings.
+   - Ensure the Docker Hub token has Read, Write, and Delete permissions.
 
 ---
 
