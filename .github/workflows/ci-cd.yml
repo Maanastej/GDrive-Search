@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: checkout code
         uses: actions/checkout@v3
@@ -27,6 +29,7 @@ jobs:
         run: pytest tests/ -v
 
   build-and-push:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -42,15 +45,5 @@ jobs:
       - name: build and push docker image
         uses: docker/build-push-action@v4
         with:
-          push: true    
-          tags: ${{ secrets.DOCKER_USERNAME}}/gdrive-search:latest
-
-      - name: learning secrect keys
-        env:
-          SECRET_KEY: ${{secrets.APP_SECRET_KEY}}
-        run: echo "secret key is set $SECRET_KEY"
-
-      - name: Run container with secret
-        env:
-          SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
-        run: docker run -e SECRET_KEY=$SECRET_KEY ${{ secrets.DOCKER_USERNAME }}/gdrive-search:latest
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/gdrive-search:latest
