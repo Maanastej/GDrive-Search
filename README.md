@@ -79,8 +79,10 @@ Drive Search/
 ├── tests/
 │   ├── __init__.py
 │   └── test_api.py                # pytest test suite for FastAPI endpoints
-├── .env.example                   # Environment template
+├── .env                           # Local secrets (gitignored — never commit)
+├── .env.example                   # Environment template (safe to commit)
 ├── .gitignore
+├── docker-compose.yml             # Multi-container local dev stack
 ├── Dockerfile                     # Container definition
 ├── deploy.ps1                     # PowerShell deployment automation script
 ├── Procfile
@@ -98,24 +100,37 @@ This project includes a fully automated CI/CD pipeline using **GitHub Actions** 
 ### Pipeline Flow
 
 ```
-git push to main
+Pull Request to main
   → GitHub Actions triggers
   → Runs pytest on FastAPI endpoints
+  → Must pass before merge is allowed (branch protection)
+
+Merge to main
+  → GitHub Actions triggers
+  → Runs pytest
   → Builds Docker image
   → Pushes image to Docker Hub
 ```
 
 ### Pipeline Jobs
 
-**Job 1 — Test**
+**Job 1 — Test** *(runs on both PRs and pushes to main)*
 - Sets up Python 3.11
 - Installs dependencies from `backend/requirements.txt`
 - Runs `pytest tests/ -v` against the live FastAPI app
 
-**Job 2 — Build & Push** *(only runs if tests pass)*
+**Job 2 — Build & Push** *(only runs on merge to main, after tests pass)*
 - Logs into Docker Hub using GitHub Secrets
 - Builds Docker image from `Dockerfile`
 - Pushes image tagged as `latest` to Docker Hub
+
+### Branch Protection
+
+The `main` branch is protected with the following rules:
+- **Pull request required** — no direct pushes to main; all changes go through a PR
+- **Status checks required** — CI tests must pass before a PR can be merged
+
+This ensures broken code never reaches main.
 
 ### GitHub Secrets Required
 
@@ -123,8 +138,98 @@ git push to main
 |--------|-------------|
 | `DOCKER_USERNAME` | Your Docker Hub username |
 | `DOCKER_TOKEN` | Docker Hub personal access token (Read/Write/Delete) |
+| `APP_SECRET_KEY` | Application secret key injected at runtime |
 
 Credentials are **never hardcoded** — they are injected securely at runtime via GitHub Secrets.
+
+---
+
+## 🔐 Secrets Management
+
+This project follows a strict secrets management pattern to ensure no credentials are ever exposed in code or logs.
+
+### Local Development
+
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+2. Fill in your actual values in `.env`
+3. `.env` is listed in `.gitignore` — it will never be committed
+
+### CI/CD Pipeline
+
+Secrets are stored in **GitHub Repository Secrets** (Settings → Secrets and variables → Actions) and injected into the workflow at runtime:
+
+```yaml
+env:
+  SECRET_KEY: ${{ secrets.APP_SECRET_KEY }}
+```
+
+GitHub automatically masks secret values in logs, replacing them with `***`.
+
+### Docker Runtime
+
+Secrets are passed into the container via the `--env-file` flag locally:
+
+```bash
+docker run --env-file .env -p 8000:8000 maanastej/gdrive-search:latest
+```
+
+Or via the `-e` flag in the CI pipeline:
+
+```bash
+docker run -e SECRET_KEY=$SECRET_KEY maanastej/gdrive-search:latest
+```
+
+**Rule:** secrets live in `.env` locally, in GitHub Secrets in CI, and are injected at runtime into containers. They never appear in source code.
+
+---
+
+## 🐳 Docker Compose
+
+For local development, Docker Compose spins up the full stack — app and database — with a single command.
+
+### Usage
+
+```bash
+docker-compose up
+```
+
+This starts:
+- **app** — the Drive Search backend on port 8000
+- **db** — a PostgreSQL 15 database on port 5432
+
+### Configuration
+
+```yaml
+services:
+  app:
+    image: maanastej/gdrive-search:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+```
+
+`depends_on` ensures the database container is ready before the app starts. Containers communicate using service names as hostnames — the app connects to the database at `db:5432`.
+
+### Stop the stack
+
+```bash
+docker-compose down
+```
 
 ---
 
@@ -173,7 +278,7 @@ pytest tests/ -v
 | `test_root` | App starts and root endpoint responds |
 | `test_app_starts` | FastAPI app object is correctly initialized |
 
-Tests run automatically on every `git push` via the CI/CD pipeline.
+Tests run automatically on every `git push` and on every Pull Request via the CI/CD pipeline.
 
 ---
 
@@ -220,20 +325,22 @@ copy .env.example .env
 6. **Share your target Drive folder** with the service account email
 7. Set `GOOGLE_DRIVE_FOLDER_ID` in `.env` (optional — restricts search scope)
 
-### 4. Run the Backend
+### 4. Run with Docker Compose (recommended)
 
 ```bash
-cd backend
-uvicorn app.main:app --reload --port 8000
+docker-compose up
 ```
 
 The API will be available at `http://localhost:8000`
-- Swagger docs: `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
 
-### 5. Run the Frontend
+### 5. Run Manually
 
 ```bash
+# Backend
+cd backend
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (separate terminal)
 cd frontend
 streamlit run streamlit_app.py --server.port 8501
 ```
@@ -328,14 +435,14 @@ GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
 
 ### Docker Hub
 
-The latest image is automatically built and pushed to Docker Hub on every push to `main`.
+The latest image is automatically built and pushed to Docker Hub on every merge to `main`.
 
 ```bash
 # Pull the latest image
-docker pull your-dockerhub-username/gdrive-search:latest
+docker pull maanastej/gdrive-search:latest
 
 # Run the container
-docker run -p 8000:8000 --env-file .env your-dockerhub-username/gdrive-search:latest
+docker run -p 8000:8000 --env-file .env maanastej/gdrive-search:latest
 ```
 
 ### Railway
@@ -453,6 +560,10 @@ Health check endpoint.
 5. **CI/CD Pipeline Failing:**
    - Check that `DOCKER_USERNAME` and `DOCKER_TOKEN` secrets are correctly set in GitHub repo Settings.
    - Ensure the Docker Hub token has Read, Write, and Delete permissions.
+
+6. **Docker Compose: app can't connect to database:**
+   - Make sure you're using `db` as the hostname in your connection string, not `localhost`.
+   - Check that `depends_on` is set correctly in `docker-compose.yml`.
 
 ---
 
